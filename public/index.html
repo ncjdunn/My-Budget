@@ -1,1 +1,152 @@
+// Autopay Budget PWA - Removed Calendar Weekly Overlay Bubble in Tile
+import React, { useState, useEffect } from 'react';
+import Calendar from 'react-calendar';
+import 'react-calendar/dist/Calendar.css';
+
+export default function AutopayBudgetApp() {
+  const [newBill, setNewBill] = useState({ description: '', date: '', amount: '', frequency: '' });
+  const [payments, setPayments] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(null);
+
+  useEffect(() => {
+    setPayments([
+      { id: 1, date: '1st', amount: 58, description: "River's Dance Class", frequency: 'Monthly', monthlyImpact: 58, paid: false },
+      { id: 2, date: '11th', amount: 150, description: 'Insurance', frequency: 'Monthly', monthlyImpact: 150, paid: false },
+      { id: 3, date: '23rd', amount: 120, description: 'Starlink Internet', frequency: 'Monthly', monthlyImpact: 120, paid: false },
+      { id: 4, date: '24th', amount: 120, description: "Dad's Mint Phone", frequency: 'Every 3 Months', monthlyImpact: 40, paid: false },
+      { id: 5, date: '16th', amount: 120, description: "Jenna's Mint Phone", frequency: 'Every 3 Months', monthlyImpact: 40, paid: false },
+      { id: 6, date: '21st', amount: 120, description: "Orion's Mint Phone", frequency: 'Every 3 Months', monthlyImpact: 40, paid: false },
+    ]);
+  }, []);
+
+  // Unpaid first
+  const sortedPayments = [...payments].sort((a, b) => a.paid - b.paid);
+
+  // Map day to payment
+  const paymentByDay = payments.reduce((acc, p) => {
+    const d = parseInt(p.date, 10);
+    if (!isNaN(d)) acc[d] = p;
+    return acc;
+  }, {});
+
+  // Weekly totals summary
+  const weeklyTotals = payments.reduce((acc, p) => {
+    if (!p.paid) {
+      const d = parseInt(p.date, 10);
+      if (!isNaN(d)) {
+        const idx = Math.floor((d - 1) / 7);
+        acc[idx] = (acc[idx] || 0) + p.monthlyImpact;
+      }
+    }
+    return acc;
+  }, []);
+
+  const togglePaid = id => setPayments(prev => prev.map(p => p.id === id ? { ...p, paid: !p.paid } : p));
+
+  const totalMonthly = payments.reduce((sum, p) => sum + (!p.paid ? p.monthlyImpact : 0), 0);
+
+  return (
+    <div className="min-h-screen bg-gray-50 text-gray-800 p-6 lg:p-12 flex flex-col lg:flex-row gap-8">
+      {/* Disable calendar default highlights */}
+      <style>{`
+        .react-calendar__tile--active,
+        .react-calendar__tile--now,
+        .react-calendar__tile:enabled:hover,
+        .react-calendar__tile:enabled:focus {
+          background: transparent !important;
+          color: inherit !important;
+          box-shadow: none !important;
+        }
+      `}</style>
+
+      {/* Payments List */}
+      <div className="w-full lg:w-1/2">
+        <h1 className="text-3xl font-bold mb-6 text-center text-blue-600">Autopay Budget Tracker</h1>
+        <p className="mb-6 text-center text-gray-700">Total Monthly Autopay Budget: <span className="text-blue-600 font-semibold">${totalMonthly}</span></p>
+        <div className="space-y-4">
+          {sortedPayments.map(p => (
+            <div key={p.id} className={`p-4 rounded-lg shadow bg-white ${p.paid ? 'opacity-50 line-through' : ''}`}>  
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-lg font-semibold text-gray-900">{p.description} - ${p.amount}</p>
+                  <p className="text-sm text-gray-600 mb-2">Due: {p.date} | {p.frequency}</p>
+                </div>
+                <button
+                  onClick={() => togglePaid(p.id)}
+                  className={`px-4 py-2 rounded text-white font-medium ${p.paid ? 'bg-green-500' : 'bg-blue-500 hover:bg-blue-600'}`}
+                >{p.paid ? 'Paid' : 'Mark Paid'}</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Calendar, Add Bill, Weekly Totals */}
+      <div className="w-full lg:w-1/2 space-y-6">
+        <Calendar
+          onChange={setSelectedDate}
+          value={selectedDate}
+          className="react-calendar p-4 bg-white rounded-lg shadow"
+          tileClassName={({ date, view }) => view === 'month' && paymentByDay[date.getDate()] ? 'relative' : ''}
+          tileContent={({ date, view }) => {
+            if (view !== 'month') return null;
+            const day = date.getDate();
+            const pay = paymentByDay[day];
+            return pay ? (
+              <>
+                {/* Dot behind date */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <span className={`${pay.paid ? 'bg-green-500 bg-opacity-50' : 'bg-yellow-400 bg-opacity-50'} w-8 h-8 rounded-full`}></span>
+                </div>
+                {/* Date number */}
+                <div className={`absolute inset-0 flex items-center justify-center ${pay.paid ? 'text-green-500' : 'text-blue-500'}`}>{day}</div>
+              </>
+            ) : null;
+          }}
+        />
+
+        {/* Add New Bill Form */}
+        <div className="p-4 bg-white rounded-lg shadow space-y-3">
+          <h3 className="text-xl font-semibold text-blue-600 mb-2">Add New Bill</h3>
+          <input
+            type="text" placeholder="Name" value={newBill.description}
+            onChange={e => setNewBill({ ...newBill, description: e.target.value })}
+            className="w-full p-2 border rounded text-gray-800"
+          />
+          <input
+            type="text" placeholder="Date (e.g., 5th)" value={newBill.date}
+            onChange={e => setNewBill({ ...newBill, date: e.target.value })}
+            className="w-full p-2 border rounded text-gray-800"
+          />
+          <input
+            type="number" placeholder="Amount" value={newBill.amount}
+            onChange={e => setNewBill({ ...newBill, amount: e.target.value })}
+            className="w-full p-2 border rounded text-gray-800"
+          />
+          <input
+            type="text" placeholder="Frequency" value={newBill.frequency}
+            onChange={e => setNewBill({ ...newBill, frequency: e.target.value })}
+            className="w-full p-2 border rounded text-gray-800"
+          />
+          <button
+            onClick={() => {
+              const id = payments.length ? Math.max(...payments.map(p => p.id)) + 1 : 1;
+              setPayments([...payments, { id, description: newBill.description, date: newBill.date, amount: parseFloat(newBill.amount), monthlyImpact: parseFloat(newBill.amount), frequency: newBill.frequency, paid: false }]);
+              setNewBill({ description: '', date: '', amount: '', frequency: '' });
+            }}
+            className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded"
+          >Add Bill</button>
+        </div>
+
+        {/* Weekly Totals Summary */}
+        <div className="p-4 bg-white rounded-lg shadow">
+          <h3 className="text-lg font-semibold mb-2 text-blue-600">Weekly Totals</h3>
+          {weeklyTotals.map((tot, idx) => (
+            <div key={idx} className="text-sm text-gray-800">Week {idx + 1}: ${tot}</div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
